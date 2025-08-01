@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<!-- Github : http://github.com/vembririyan -->
+<html>
+<head>
+  <title>VLINE Maker - vembririyan</title>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 0;
+    }
+    #map {
+      height: 70vh;
+    }
+    .controls {
+      padding: 10px;
+      width: 100%;
+    }
+    textarea {
+      width: 100%;
+      height: 120px;
+      margin-top: 10px;
+      font-family: monospace;
+    }
+    button {
+      padding: 6px 12px;
+      margin: 5px 5px 0 0;
+      font-size: 14px;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+<div>
+  <h1 class="text-white rounded-b-lg text-center p-2 font-bold bg-purple-600">VILINE MAKER</h1>
+</div>
+<div class="controls w-full">
+  <button class="bg-purple-500 text-white rounded-sm" onclick="printData()">🔽 Simpan Titik</button>
+  <button class="bg-purple-500 text-white rounded-sm" onclick="copyJson()">📋 Copy</button>
+  <button class="bg-purple-500 text-white rounded-sm" onclick="loadData()">🔁 Muat JSON</button>
+  <button class="bg-purple-500 text-white rounded-sm" onclick="resetMarkers()">🗑️ Reset Marker</button><br>
+  <textarea id="inputJson" class="border border-purple-500 rounded-sm w-full p-2" placeholder="Data titik (JSON) akan muncul di sini..."></textarea>
+</div>
+
+<div id="map" class="rounded-lg mx-2 border border-puprle-600"></div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+  const map = L.map('map').setView([-2.5, 118], 5);
+
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: 'Map data &copy; OpenStreetMap contributors'
+  }).addTo(map);
+
+  let idCounter = 1;
+  const markers = [];
+  const polyline = L.polyline([], { color: 'blue' }).addTo(map);
+
+  function updateLine() {
+    const latlngs = markers.map(obj => obj.marker.getLatLng());
+    polyline.setLatLngs(latlngs);
+  }
+
+  function addMarker(latlng, customId = null) {
+    const id = customId ?? idCounter++;
+    const marker = L.marker(latlng, { draggable: true }).addTo(map);
+    marker.bindTooltip("ID: " + id, { permanent: true, direction: 'top' }).openTooltip();
+
+    marker.on('drag', updateLine);
+
+    marker.on('contextmenu', () => {
+      map.removeLayer(marker);
+      const index = markers.findIndex(m => m.id === id);
+      if (index > -1) markers.splice(index, 1);
+      updateLine();
+    });
+
+    markers.push({ id: id, marker: marker });
+    if (id >= idCounter) idCounter = id + 1;
+
+    updateLine();
+  }
+
+  map.on('click', function(e) {
+    addMarker(e.latlng);
+  });
+
+  function printData() {
+    const data = markers.map(obj => {
+      const { lat, lng } = obj.marker.getLatLng();
+      return { id: obj.id, lat: lat, lng: lng };
+    });
+
+    const jsonString = JSON.stringify(data, null, 2);
+    document.getElementById("inputJson").value = jsonString;
+    console.log("Data titik:", jsonString);
+  }
+
+  function copyJson() {
+    const textarea = document.getElementById("inputJson");
+    textarea.select();
+    document.execCommand("copy");
+    alert("📋 Data berhasil disalin!");
+  }
+
+  function loadData() {
+    try {
+      const jsonStr = document.getElementById("inputJson").value;
+      const parsed = JSON.parse(jsonStr);
+
+      resetMarkers(); // Hapus dulu
+      parsed.forEach(item => {
+        const latlng = L.latLng(item.lat, item.lng);
+        addMarker(latlng, item.id);
+      });
+    } catch (err) {
+      alert("JSON tidak valid!");
+      console.error(err);
+    }
+  }
+
+  function resetMarkers() {
+    markers.forEach(obj => map.removeLayer(obj.marker));
+    markers.length = 0;
+    polyline.setLatLngs([]);
+    idCounter = 1;
+    document.getElementById("inputJson").value = "";
+  }
+</script>
+
+</body>
+</html>
